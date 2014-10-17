@@ -58,11 +58,12 @@ var baseTreemap = {
             that.cells.append("rect")
                 .attr("x",function(dataItem){ return dataItem.x; })
                 .attr("y",function(dataItem){ return dataItem.y; })
-                .attr("width",function(dataItem){return dataItem.dx; })
-                .attr("height",function(dataItem){return dataItem.dy; })
+                .attr("width",function(dataItem){return dataItem.dx - 1; })
+                .attr("height",function(dataItem){return dataItem.dy - 1; })
                 //apply a color for each group using the scale color based on the parent (so leaf from the same parent shares colors)
                 //that after checking if the cur item has children (so only the leaf)
                 .attr("fill", function(d){ return d.children ? null : that.color(d.parent.name) })
+                .attr("stroke","#FFF")
             ;
 
         })

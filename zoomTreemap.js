@@ -148,3 +148,36 @@ var zoomTreemap = {
     }
 
 };
+
+function parseData(data) {
+
+    var formattedChildren = _.each(data.groups, function(item){
+
+        item.drillDownLevel = 1;
+        item.children = item.Sons;
+        item.size = Math.abs(parseFloat(item.TotValue));
+        item.size === 0 ? item.size = 1 : item.size;
+        item.name = item.GroupDescription;
+        _.each(item.children, function(child){
+
+            child.drillDownLevel = 2;
+            child.name = child.GroupDescription;
+            child.size = Math.abs(parseFloat(child.TotValue));
+            child.size === 0 ? child.size = 1 : child.size;
+            child.children = child.Sons;
+            _.each(child.children, function(childOfChild){
+                childOfChild.drillDownLevel = 3;
+                childOfChild.size = Math.abs(parseFloat(childOfChild.TotValue));
+                childOfChild.size === 0 ? childOfChild.size = 1 : childOfChild.size;
+                childOfChild.name = childOfChild.GroupDescription;
+            });
+        });
+    });
+    parsedData = {
+        name: "a",
+        drillDownLevel: 0,
+        children: formattedChildren
+    };
+    return parsedData;
+
+}

@@ -3,6 +3,65 @@
 <head lang="it">
     <meta charset="UTF-8">
     <title>TEST D3 TREEMAP</title>
+
+    <style>
+
+        #treemap{
+            float:left;
+            width: 831px;
+            height: 344px;
+        }
+
+        #menu{
+            float: left;
+            border: 1px solid black;
+            margin-left: 16px;
+            padding-top: 10px;
+            height: 328px;
+            width: 29.5%;
+        }
+
+        input[type="text"]{
+            width: 300px;
+            font-size: 18px;
+            text-align: center;
+            display: block;
+            margin: 0 auto;
+        }
+
+        input[type='button']{
+            font-size: 18px;
+            width: 200px;
+            margin: 0 auto;
+            display: inline;
+            margin-left: 77px;
+        }
+
+        label{
+            font-size: 16px;
+            text-align: center;
+            width: 100%;
+            display: block;
+        }
+
+        #log{
+            width: 100%;
+            position: absolute;
+            top: 358px;
+        }
+
+        .logDiv{
+            float: left;
+            border: 1px solid black;
+            width: 30%;
+            height: 400px;
+            overflow: scroll;
+            padding: 0 0 10px 20px;
+            margin-left: 14px;
+            font-family: Helvetica, sans-serif;
+            font-size: 16px;
+        }
+    </style>
 </head>
 <body>
 
@@ -10,60 +69,94 @@
 
 </div>
 
+<div id="menu">
+    <p>
+        <label for="txtThreshold">Soglia minima percentuale:</label>
+    </p>
+    <p>
+        <input type="text" id="txtThreshold" name="txtThreshold"/>
+    </p>
+    <p>
+        <input type="button" id="btnRedraw" value="Redraw">
+    </p>
+</div>
+
+<div id="log">
+    <div id="lvl1" class="logDiv">
+
+    </div>
+    <div id="lvl2" class="logDiv">
+
+    </div>
+    <div id="lvl3" class="logDiv">
+
+    </div>
+</div>
+
 <script src="assets/underscore/underscore.js" type="text/javascript"></script>
 <script src="assets/jquery/jquery-2.1.1.min.js" type="text/javascript"></script>
-<script src="assets/D3/d3.js" type="text/javascript"></script>
-<script src="assets/D3/d3.layout.js" type="text/javascript"></script>
 
+<!-- zoomTreemap & treemap -->
+<!--<script src="assets/D3/d3.js" type="text/javascript"></script>-->
+<!--<script src="assets/D3/d3.layout.js" type="text/javascript"></script>-->
+<!-- drillTreemap -->
+<script src="assets/D3/d3.v3.min.js" type="text/javascript"></script>
 
 <!--<script src="treemap.js" type="text/javascript"></script>-->
-<script src="zoomTreemap.js" type="text/javascript"></script>
+<!--<script src="zoomTreemap.js" type="text/javascript"></script>-->
+<script src="drillTreemap.js" type="text/javascript"></script>
 
 
 <script type="text/javascript">
 
+    var threshold = 4;
+
     $(document).ready(function(){
 
-        $.get('http://54.76.107.105/MonFlussiReport/api/TreeMap/242?FieldCode=N.RECORD%20CALCOLATO&preventCache=Thu%20Oct%2016%202014%2010:51:36%20GMT+0200%20(CEST)', function(data){
+        $('#txtThreshold').val(threshold);
+
+
+
+        $('#btnRedraw').on('click',function(){
+
+            $('#treemap').html('');
+            $('#lvl1').html('');
+            $('#lvl2').html('');
+            $('#lvl3').html('');
+
+            threshold = $('#txtThreshold').val();
+
+            $.get('/data/drillData1.json', function(data) {
+                drawTreemap(JSON.parse(data))
+            });
+        });
+
+
+        //$.get('http://54.76.107.105/MonFlussiReport/api/TreeMap/242?FieldCode=N.RECORD%20CALCOLATO&preventCache=Thu%20Oct%2016%202014%2010:51:36%20GMT+0200%20(CEST)', function(data){
         //$.get('/data/zoomDataEx.json', function(data){
-            zoomTreemap.draw( parseData(data) );
-            //zoomTreemap.draw( JSON.parse(data) );
+        $.get('/data/drillData1.json', function(data) {
+            drawTreemap(JSON.parse(data))
         });
 
     });
 
+    function drawTreemap(data){
 
+            window.treemapData = data;
+            drillTreemap.draw( parseData(data,threshold,true) );
 
-    function parseData(data) {
-
-        var formattedChildren = _.each(data.groups, function(item){
-
-            item.drillDownLevel = 1;
-            item.children = item.Sons;
-            item.size = Math.abs(parseFloat(item.TotValue));
-            item.size === 0 ? item.size = 1 : item.size;
-            item.name = item.GroupDescription;
-            _.each(item.children, function(child){
-
-                child.drillDownLevel = 2;
-                child.name = child.GroupDescription;
-                child.size = Math.abs(parseFloat(child.TotValue));
-                child.size === 0 ? child.size = 1 : child.size;
-                child.children = child.Sons;
-                _.each(child.children, function(childOfChild){
-                    childOfChild.drillDownLevel = 3;
-                    childOfChild.size = Math.abs(parseFloat(childOfChild.TotValue));
-                    childOfChild.size === 0 ? childOfChild.size = 1 : childOfChild.size;
-                    childOfChild.name = childOfChild.GroupDescription;
-                });
-            });
-        });
-        parsedData = {
-            name: "a",
-            drillDownLevel: 0,
-            children: formattedChildren
-        };
-        return parsedData;
+            if(lvl1Debug){
+                lvl1Debug = lvl1Debug.replace(/(?:\r\n|\r|\n)/g, '<br />');
+                $('#lvl1').html("<p>"+  lvl1Debug +"</p>");
+            }
+            if(lvl2Debug){
+                lvl2Debug = lvl2Debug.replace(/(?:\r\n|\r|\n)/g, '<br />');
+                $('#lvl2').html("<p>"+  lvl2Debug +"</p>");
+            }
+            if(lvl3Debug){
+                lvl3Debug = lvl3Debug.replace(/(?:\r\n|\r|\n)/g, '<br />');
+                $('#lvl3').html("<p>"+  lvl3Debug +"</p>");
+            }
 
     }
 
