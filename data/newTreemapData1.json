@@ -1,0 +1,18 @@
+{
+    "name": "items",
+    "children": [
+        {
+            "id": "33447",
+            "value": "13",
+            "color": "#ff8080",
+            "keytable": "CCR"
+        },
+        {
+            "id": "33455",
+            "value": "4",
+            "color": "#80ff80",
+            "keytable": "COMMODITY"
+        }
+
+    ]
+}

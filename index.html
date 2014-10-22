@@ -61,6 +61,20 @@
             font-family: Helvetica, sans-serif;
             font-size: 16px;
         }
+
+        #treemapMenu{
+            border-bottom: 1px solid black;
+            padding-bottom: 26px;
+        }
+
+        .node {
+            border: solid 1px white;
+            font: 10px sans-serif;
+            line-height: 12px;
+            overflow: hidden;
+            position: absolute;
+            text-indent: 2px;
+        }
     </style>
 </head>
 <body>
@@ -70,6 +84,9 @@
 </div>
 
 <div id="menu">
+    <p id="treemapMenu">
+        <input type="button" id="btnBack" value="<-- BACK">
+    </p>
     <p>
         <label for="txtThreshold">Soglia minima percentuale:</label>
     </p>
@@ -100,16 +117,17 @@
 <!--<script src="assets/D3/d3.js" type="text/javascript"></script>-->
 <!--<script src="assets/D3/d3.layout.js" type="text/javascript"></script>-->
 <!-- drillTreemap -->
-<script src="assets/D3/d3.v3.min.js" type="text/javascript"></script>
+<script src="assets/D3/d3.js" type="text/javascript"></script>
 
 <!--<script src="treemap.js" type="text/javascript"></script>-->
 <!--<script src="zoomTreemap.js" type="text/javascript"></script>-->
-<script src="drillTreemap.js" type="text/javascript"></script>
+<!--<script src="drillTreemap.js" type="text/javascript"></script>-->
+<script src="newTreemap.js" type="text/javascript"></script>
 
 
 <script type="text/javascript">
 
-    var threshold = 4;
+    var threshold = 20;
 
     $(document).ready(function(){
 
@@ -126,15 +144,19 @@
 
             threshold = $('#txtThreshold').val();
 
-            $.get('/data/drillData1.json', function(data) {
+            $.get('/data/drillData2.json', function(data) {
                 drawTreemap(JSON.parse(data))
             });
+        });
+
+        $('#btnBack').on('click',function(){
+           newTreemap.goToParent();
         });
 
 
         //$.get('http://54.76.107.105/MonFlussiReport/api/TreeMap/242?FieldCode=N.RECORD%20CALCOLATO&preventCache=Thu%20Oct%2016%202014%2010:51:36%20GMT+0200%20(CEST)', function(data){
         //$.get('/data/zoomDataEx.json', function(data){
-        $.get('/data/drillData1.json', function(data) {
+        $.get('/data/drillData3.json', function(data) {
             drawTreemap(JSON.parse(data))
         });
 
@@ -142,8 +164,9 @@
 
     function drawTreemap(data){
 
+            newTreemap.draw(data,threshold,true);
+
             window.treemapData = data;
-            drillTreemap.draw( parseData(data,threshold,true) );
 
             if(lvl1Debug){
                 lvl1Debug = lvl1Debug.replace(/(?:\r\n|\r|\n)/g, '<br />');

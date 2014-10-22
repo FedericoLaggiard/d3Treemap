@@ -15,7 +15,7 @@ var drillTreemap = {
 
     draw: function (data) {
 
-        var margin = {top: 20, right: 0, bottom: 0, left: 0},
+        var margin = {top: 0, right: 0, bottom: 0, left: 0},
             width = this.width,
             height = this.height - margin.top - margin.bottom,
             formatNumber = d3.format(",d"),
@@ -45,18 +45,18 @@ var drillTreemap = {
             .style("shape-rendering", "crispEdges");
 
 
-        var grandparent = this.canvas.append("g")
+        var grandparent = d3.select('#btnBack')
             .attr("class", "grandparent");
 
-        grandparent.append("rect")
-            .attr("y", -margin.top)
-            .attr("width", width)
-            .attr("height", margin.top);
+//        grandparent.append("rect")
+//            .attr("y", -margin.top)
+//            .attr("width", width)
+//            .attr("height", margin.top);
 
-        grandparent.append("text")
-            .attr("x", 6)
-            .attr("y", 6 - margin.top)
-            .attr("dy", ".75em");
+//        grandparent.append("text")
+//            .attr("x", 6)
+//            .attr("y", 6 - margin.top)
+//            .attr("dy", ".75em");
 
         var root = data;
 
@@ -206,46 +206,6 @@ var drillTreemap = {
 
 };
 
-
-//function parseData(data,minThreshold,debug){
-//
-//    var drillLevel = 1,
-//        minMaxLvl = {
-//            lvl1: {min: 0,max: 0},
-//            lvl2: {min: 0,max: 0},
-//            lvl3: {min: 0,max: 0}
-//        }
-//        ;
-//
-//    function getMinMaxByLevel(minMaxLvl){
-//
-//    }
-//
-//    function recursive(data,minThreshold,debug,drillLevel){
-//        _.each(data, function(item){
-//
-//            if(item.Sons !== null && item.Sons !== undefined){
-//
-//                recursive(item.Sons,minThreshold,debug,drillLevel);
-//
-//            }else{
-//
-//                item.drillDownLevel = drillLevel;
-//                item.children = item.Sons;
-//                item.value = Math.abs(parseFloat(item.TotValue));
-//                item.value < lvl1minValue ? item.value = lvl1minValue : item.value;
-//
-//
-//            }
-//
-//            drillLevel ++;
-//
-//        })
-//    }
-//
-//
-//}
-
 function parseData(data, minThreshold, debug) {
 
     window.lvl1Debug="";
@@ -271,13 +231,17 @@ function parseData(data, minThreshold, debug) {
     }
     lvl1Max = _.max(lvl1Arr);
     lvl1Min = _.min(lvl1Arr);
-    lvl1minValue = ( lvl1Max * minThreshold ) / 100;
+//    lvl1minValue = Math.round( ( lvl1Max * minThreshold ) / 100 );
+//    lvl1minValue = lvl1minValue === 0 ? 1 : lvl1minValue;
+    lvl1minValue = ( lvl1Max * minThreshold ) / 100 ;
+
 
     if(debug){ lvl1Debug = 'LEVEL 1 --> Max: '+ lvl1Max +' Threshold: '+ lvl1minValue +', Values: \r\n[\r\n '; }
 
     var formattedChildren = _.each(data.groups, function(item){
 
         //======================= LEVEL 1 ================================
+
         item.drillDownLevel = 1;
         item.children = item.Sons;
         item.value = Math.abs(parseFloat(item.TotValue));
@@ -299,7 +263,9 @@ function parseData(data, minThreshold, debug) {
                 }
                 lvl2Max = _.max(lvl2Arr);
                 lvl2Min = _.min(lvl2Arr);
-                lvl2minValue = ( lvl2Max * minThreshold ) / 100;
+//                lvl2minValue = Math.round( ( lvl2Max * minThreshold ) / 100 );
+//                lvl2minValue = lvl2minValue === 0 ? 1 : lvl2minValue;
+                lvl2minValue = ( lvl2Max * minThreshold ) / 100 ;
 
                 if(debug){ lvl2Debug += 'LEVEL 2 of ['+ item.GroupDescription +']--> Max: '+ lvl2Max +' Threshold: '+ lvl2minValue +', Values: \r\n[\r\n '; }
             }
@@ -325,10 +291,12 @@ function parseData(data, minThreshold, debug) {
                     }
                     lvl3Max = _.max(lvl3Arr);
                     lvl3Min = _.min(lvl3Arr);
+//                    lvl3minValue = Math.round( ( lvl3Max * minThreshold ) / 100 );
+//                    lvl3minValue = lvl3minValue === 0 ? 1 : lvl3minValue;
                     lvl3minValue = ( lvl3Max * minThreshold ) / 100;
 
                     if (debug) {
-                        lvl3Debug += 'LEVEL 3 of [' + child.GroupDescription + ']--> Max: ' + lvl3Max + ' Threshold: ' + lvl3minValue + ', Values: \r\n[\r\n ';
+                        lvl3Debug += 'LEVEL 3 of [' + item.GroupDescription +'->'+ child.GroupDescription + ']--> Max: ' + lvl3Max + ' Threshold: ' + lvl3minValue + ', Values: \r\n[\r\n ';
                     }
                 }
 
