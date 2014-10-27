@@ -1,10 +1,11 @@
 var newTreemap = {
 
     renderDivId: 'treemap',               //Rendering div. Must be set before drawing call
-    width: 831,                           //Width and height of the canvas
+    width: 981,                           //Width and height of the canvas
     height: 340,
     canvas: null,                         //Reference to the drawing canvas
     curData: null,                        //Current data loaded into the treemap
+    unparsedData: null,                   //Reference to unparsed data
     treemap: null,                        //Ref to the current treemap
     cells: null,                          //Ref to svg group containing cells
     color: d3.scale.category20(),         //D3 color scale used by the treemap
@@ -26,59 +27,235 @@ var newTreemap = {
     scaleX: null,                         //Scale for x dimension of rectangles
     scaleY: null,                         //Scale for y dimension of rectangles
     selectedLeaf: null,                   //Reference to the selected leaf div (if any)
+    useSlider: false,                     //If true the treemap use a slider to control the threshold value. NoUISlider.js is mandatory.
+    slider:{
+        ref: null,                        //Reference to slider. (only if useSlider)
+        width: 18,
+        margin: {
+            top: 0,
+            left: 10,
+            right: 10,
+            bottom: 10
+        },
+        usePips: true ,                   //If true shows scale near slider
+        pipsSpacing: 40,                  //Space occupied by pips
+        updateOnSlide: true               //Specify if the update process is bound with slider slide event or only on slider release (consider turn to false if big input data is involved)
+    },
 
     draw: function (data, threshold, debug) {
 
+        var width,
+            height,
+            margin = { top: 0, bottom: 0, left: 0, right: 0  }
+        ;
+
         if(threshold) this.threshold = threshold;
         if(debug) this.debug = debug;
-        var margin = this.margin;
-        this.width = this.width - margin.left - margin.right;
-        this.height = this.height - margin.top - margin.bottom;
-        this.curPath = this.startLevel;
+        margin.left = this.margin.left; margin.right = this.margin.right; margin.top = this.margin.top; margin.bottom = this.margin.bottom;
+
+        if(this.useSlider){
+            if(this.slider.usePips){
+                margin.right += this.slider.width +
+                    2 + //+2 is for the border (1px each)
+                    this.slider.pipsSpacing + //+40 is for the pips
+                    this.slider.margin.left +
+                    this.slider.margin.right;
+            }else{
+                margin.right += this.slider.width +
+                    2 + //+2 is for the border (1px each)
+                    this.slider.margin.left +
+                    this.slider.margin.right;
+            }
+
+            width = this.width - margin.left - margin.right;
+            height = this.height - margin.top - margin.bottom;
+
+            if(this.slider.ref === null){
+                var renderDiv = $('#' + this.renderDivId);
+                renderDiv.css('width',width + margin.right);
+
+                renderDiv.append('<div class="sliderContainer">');
+                var sliderContainer = $('.sliderContainer');
+                sliderContainer.css('height', height +'px');
+                sliderContainer.css('width', this.slider.width +'px');
+                if(this.slider.usePips){
+                    sliderContainer.css('margin', this.slider.margin.top + 'px '+
+                        (this.slider.margin.right + this.slider.pipsSpacing) + 'px '+
+                        this.slider.margin.bottom +'px '+
+                        this.slider.margin.left +'px');
+                }else{
+                    sliderContainer.css('margin',this.slider.margin.top + 'px '+
+                        this.slider.margin.right + 'px '+
+                        this.slider.margin.bottom +'px '+
+                        this.slider.margin.left +'px');
+                }
+                this._drawSlider();
+            }
+
+
+        }else{
+            width = this.width - margin.left - margin.right;
+            height = this.height - margin.top - margin.bottom;
+        }
+
+        //this.curPath = this.startLevel;
+        //this.curLevel = 1;
 
         this.scaleX = d3.scale.linear()
-            .domain([0, this.width])
-            .range([0, this.width]);
+            .domain([0, width])
+            .range([0, width]);
 
         this.scaleY = d3.scale.linear()
-            .domain([0, this.height])
-            .range([0, this.height]);
+            .domain([0, height])
+            .range([0, height]);
 
+        this.unparsedData = data;
         this.curData = this.parseData(data,this.threshold,this.debug);
 
         splitDataByLevel(this.curData,this.pathSign,this.dataByLevel);
 
-        data = _.findWhere(this.dataByLevel,{ level: this.startLevel });
+        data = _.findWhere(this.dataByLevel,{ level: this.curPath });
 
-        this.treemap = d3.layout.treemap()
-            .size([this.width, this.height])
-            .sort(function(a, b) { return b.name - a.name; })
-            .mode("squarify")
-//            .ratio(this.height / this.width * 0.5 * (1 + Math.sqrt(5)))
-            .round(false);
-
-        this.canvas = d3.select("#" + this.renderDivId).append("div")
-                .style("position", "relative")
-                .style("width", (this.width + margin.left + margin.right) + "px")
-                .style("height", (this.height + margin.top + margin.bottom) + "px")
-                .style("left", margin.left + "px")
-                .style("top", margin.top + "px")
-                .attr("id", "first")
-            ;
-
-        var that = this;
-        var node = this.canvas.datum(data).selectAll(".node")
-                .data(this.treemap.nodes)
-                .enter()
+        //Creating svg canvas
+        if($('#' + this.renderDivId).find('.renderDIV').length === 0) {
+            this.canvas = d3.select('#' + this.renderDivId)
                 .append("div")
-                .attr("class", "node")
-                .call(that._position)
-                .on("click", function(d){
-                    that._transition.call(that,d,this)
-                })
-                .style("background", function(d) { return "rgb(66, 161, 201)"; })
-                .text(function(d) { return d.name; })
+                .attr("class", "renderDIV")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
             ;
+        }else{
+            this.canvas = d3.select('#' + this.renderDivId)
+                .select('.renderDIV')
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+        }
+
+        //start drawing treemap
+        this.treemap = d3.layout.treemap()
+            .size([width,height])//setting size == to canvas size.
+            .nodes(data)//binding data source
+            .sort(function(a,b) {
+                if (a === b) return 0;
+                if (a < b) return 1;
+                if (a > b) return -1;
+//                return a < b ? 1 : a > b ? -1 : 0;
+            })
+        ;
+
+        //create all groups that contains the cells, appending a g for each data element
+        this.cells = this.canvas.selectAll(".cell")
+            .data(this.treemap)
+            .enter()
+            .append("g")
+            .attr("class","cell")
+        ;
+
+        //append to each group a rectangle, starting at position x,y
+        //and with dimension dx,dy those values are already provided by d3.treemap in each dataItem (element of data)
+        var that = this;
+        this.cells.append("rect")
+            .attr("x",function(dataItem){ return dataItem.x; })
+            .attr("y",function(dataItem){ return dataItem.y; })
+            .attr("width",function(dataItem){return dataItem.dx - 1; })
+            .attr("height",function(dataItem){return dataItem.dy - 1; })
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+            //apply a color for each group using the scale color based on the parent (so leaf from the same parent shares colors)
+            //that after checking if the cur item has children (so only the leaf)
+            .attr("fill", function(d){ return "rgb(66, 161, 201)"; })
+            .attr("stroke","#FFF")
+            .attr("text-anchor", "middle")
+            .on("click", function(d){
+                that._transition.call(that,d,this)
+            })
+        ;
+
+        this.cells.append("text")
+            .attr("dy", ".75em")
+            .text(function(d) { return d.name; })
+            .call(this._text)
+        ;
+
+        /**************************** NEW - WITH DIV, ERROR RENDERING *****************************
+        this.treemap = d3.layout.treemap()
+            .size([this.width,this.height])//setting size == to canvas size. TODO: padding?
+            .nodes(data)//binding data source
+        ;
+
+        //Creating svg canvas
+        var that = this;
+        this.canvas = d3.select("#" + this.renderDivId)
+            .append("div")
+            .style("position", "relative")
+            .attr("width",this.width + 'px')
+            .attr("height",this.height + 'px')
+            .attr("id", "first")
+        ;
+
+        //create all groups that contains the cells, appending a g for each data element
+        this.cells = this.canvas.selectAll(".cell")
+            .data(this.treemap)
+            .enter()
+            .append("div")
+            .call(that._position)
+            .attr("class","cell")
+            .on("click", function(d){
+                that._transition.call(that,d,this)
+            })
+            .style("background", function(d) { return "rgb(66, 161, 201)"; })
+            .text(function(d) { return d.name; })
+        ;
+        /**************************** END NEW *********************************/
+
+        /******************** OLD - NO THRESHOLD ACCOUNTING ********************************
+//        //append to each group a rectangle, starting at position x,y
+//        //and with dimension dx,dy those values are already provided by d3.treemap in each dataItem (element of data)
+//        this.cells.append("rect")
+//            .attr("x",function(dataItem){ return dataItem.x; })
+//            .attr("y",function(dataItem){ return dataItem.y; })
+//            .attr("width",function(dataItem){return dataItem.dx - 1; })
+//            .attr("height",function(dataItem){return dataItem.dy - 1; })
+//            //apply a color for each group using the scale color based on the parent (so leaf from the same parent shares colors)
+//            //that after checking if the cur item has children (so only the leaf)
+//            .attr("fill", function(d){ return "rgb(66, 161, 201)"; })
+//            .attr("stroke","#FFF")
+//        ;
+
+        //create all groups that contains the cells, appending a g for each data element
+
+
+//        this.treemap = d3.layout.treemap()
+//            .size([this.width, this.height])
+//            .sort(function(a, b) { return b.name - a.name; })
+////            .mode("squarify")
+////            .ratio(this.height / this.width * 0.5 * (1 + Math.sqrt(5)))
+//            .round(false);
+
+//        this.canvas = d3.select("#" + this.renderDivId).append("div")
+//                .style("position", "relative")
+//                .style("width", (this.width + margin.left + margin.right) + "px")
+//                .style("height", (this.height + margin.top + margin.bottom) + "px")
+//                .style("left", margin.left + "px")
+//                .style("top", margin.top + "px")
+//                .attr("id", "first")
+//            ;
+
+//        var that = this;
+//        var node = this.canvas.datum(data).selectAll(".node")
+//                .data(this.treemap.nodes)
+//                .enter()
+//                .append("div")
+//                .attr("class", "node")
+//                .call(that._position)
+//                .on("click", function(d){
+//                    that._transition.call(that,d,this)
+//                })
+//                .style("background", function(d) { return "rgb(66, 161, 201)"; })
+//                .text(function(d) { return d.name; })
+//            ;
+/***************************** END OLD **************************************************/
 
         function splitDataByLevel(data,pathSign,dataByLevel){
 
@@ -116,6 +293,11 @@ var newTreemap = {
         }
     },
 
+    _text: function(text) {
+        text.attr("x", function(d) { return newTreemap.scaleX(d.x) + 6; })
+            .attr("y", function(d) { return newTreemap.scaleY(d.y) + 6; });
+    },
+
     _transition: function(d,item){
         var newPath = this.curPath + this.pathSign + d.name;
 
@@ -126,22 +308,89 @@ var newTreemap = {
             this.curLevel ++;
             this.curPath = newPath;
             this.selectedLeaf = item;
-            d3.select(item).style('background', function(d) { return "rgb(74, 197, 241)"; })
+            d3.select(item).attr('fill', function(d) { return "rgb(74, 197, 241)"; })
         }
+    },
+
+    _drawSlider: function(){
+        // On document ready, initialize noUiSlider.
+        var that = this;
+        $(function(){
+
+                var range_all_sliders = {
+                    'min': [ 1 ],
+                    '10%': [ 10, 1 ],
+                    '50%': [ 100, 10 ],
+                    'max': [ 1000 ]
+                };
+
+                that.slider.ref = $('.sliderContainer').noUiSlider({
+                    start: [ newTreemap.threshold ],
+                    orientation: "vertical",
+                    direction: "rtl",
+                    connect: "lower",
+                    range: range_all_sliders
+                }).on({
+                    slide: function(){
+                        if(that.slider.updateOnSlide === true){
+                            action();
+                        }
+                    },
+                    set: function(){
+                        if(that.slider.updateOnSlide === false){
+                            action();
+                        }
+                    }
+                });
+
+                if(that.slider.usePips){
+                    that.slider.ref.noUiSlider_pips({
+                        mode: 'range',
+                        density: 3
+                    });
+                }
+
+                _.each($('.noUi-value'),function(item){
+
+                    item = $(item);
+                    var val = parseFloat(item.html());
+                    val = val / 10;
+                    item.html(val+'%')
+
+                });
+
+                function action(){
+                    var threshold = parseFloat( $('.sliderContainer').val() ) / 10,
+                        curPath = that.curPath,
+                        curLevel = that.curLevel,
+                        data = that.unparsedData,
+                        debug = that.debug
+                        ;
+
+                    $("#txtThreshold").val( threshold );
+
+                    that.destroy();
+                    that.curPath = curPath;
+                    that.curLevel = curLevel;
+                    that.draw(data,threshold,debug);
+                    //that.goToLevel(that.curPath);
+                }
+        });
+
     },
 
     _position: function() {
 
         this.style("left", function(d) { return d.x + "px"; })
             .style("top", function(d) { return d.y + "px"; })
-//            .style("width", function(d) { return Math.max(0, d.dx - 1) + "px"; })
-//            .style("height", function(d) { return Math.max(0, d.dy - 1) + "px"; })
-            .style("width", function(d) {
-                return (newTreemap.scaleX(d.x + d.dx) - newTreemap.scaleX(d.x)) + "px";
-            })
-            .style("height", function(d) {
-                return (newTreemap.scaleY(d.y + d.dy) - newTreemap.scaleY(d.y)) + "px";
-            })
+            .style("width", function(d) { return Math.max(0, d.dx - 1) + "px"; })
+            .style("height", function(d) { return Math.max(0, d.dy - 1) + "px"; })
+//            .style("width", function(d) {
+//                return (newTreemap.scaleX(d.x + d.dx) - newTreemap.scaleX(d.x)) + "px";
+//            })
+//            .style("height", function(d) {
+//                return (newTreemap.scaleY(d.y + d.dy) - newTreemap.scaleY(d.y)) + "px";
+//            })
         ;
     },
 
@@ -152,7 +401,52 @@ var newTreemap = {
         if(data2){
 
             var that = this;
+            this.canvas.selectAll(".cell").remove();
 
+            //start drawing treemap
+            this.treemap = d3.layout.treemap()
+                .size([this.width,this.height])//setting size == to canvas size. TODO: padding?
+                .nodes(data2)//binding data source
+                .sort(function(a,b) {
+                    if (a === b) return 0;
+                    if (a < b) return 1;
+                    if (a > b) return -1;
+//                return a < b ? 1 : a > b ? -1 : 0;
+                })
+            ;
+
+            //create all groups that contains the cells, appending a g for each data element
+            this.cells = this.canvas.selectAll(".cell")
+                .data(this.treemap)
+                .enter()
+                .append("g")
+                .attr("class","cell")
+            ;
+
+            //append to each group a rectangle, starting at position x,y
+            //and with dimension dx,dy those values are already provided by d3.treemap in each dataItem (element of data)
+            this.cells.append("rect")
+                .attr("x",function(dataItem){ return dataItem.x; })
+                .attr("y",function(dataItem){ return dataItem.y; })
+                .attr("width",function(dataItem){return dataItem.dx - 1; })
+                .attr("height",function(dataItem){return dataItem.dy - 1; })
+                //apply a color for each group using the scale color based on the parent (so leaf from the same parent shares colors)
+                //that after checking if the cur item has children (so only the leaf)
+                .attr("fill", function(d){ return "rgb(66, 161, 201)"; })
+                .attr("stroke","#FFF")
+                .attr("text-anchor", "middle")
+                .on("click", function(d){
+                    that._transition.call(that,d,this)
+                })
+            ;
+
+            this.cells.append("text")
+                .attr("dy", ".75em")
+                .text(function(d) { return d.name; })
+                .call(this._text)
+            ;
+
+            /**************** OLD - DIV no threshold *********************************
             this.canvas.selectAll(".node").remove();
 
             var node = this.canvas.datum(data2).selectAll(".node")
@@ -172,7 +466,7 @@ var newTreemap = {
                 .call(that._position)
                 .text(function(d) { return d.name; })
             ;
-
+            /*********************** END OLD ***************************************/
 
 
             this.curPath = path;
@@ -197,24 +491,48 @@ var newTreemap = {
 
     goToParent: function(){
 
-        var path = this.curPath;
-        path = path.substr(0,path.lastIndexOf(this.pathSign));
+        if(this.curLevel > 1){
+            var path = this.curPath;
+            path = path.substr(0,path.lastIndexOf(this.pathSign));
 
-
-        if(this.curLevel <= this.maxLevel){
-            this.curLevel --;
-            this.goToLevel(path);
-        }else{
-            this.curLevel --;
-            this.curPath = path;
-            d3.select( this.selectedLeaf).style('background', function(d) { return "rgb(66, 161, 201)"; })
-            this.selectedLeaf = null;
+            if(this.curLevel <= this.maxLevel){
+                this.curLevel --;
+                this.goToLevel(path);
+            }else{
+                this.curLevel --;
+                this.curPath = path;
+                d3.select( this.selectedLeaf).attr('fill', function(d) { return "rgb(66, 161, 201)"; })
+                this.selectedLeaf = null;
+            }
         }
-
 
     },
 
-    parseData: function(data, minThreshold, debug) {
+    destroy: function(){
+
+        if(this.canvas){
+            this.canvas.remove();
+        }
+
+        this.canvas = null;
+        this.curData = null;
+        this.treemap = null;
+        this.cells = null;
+        this.startLevel = 'root';
+        this.curPath = 'root';
+        this.curLevel = 1;
+        this.maxLevel = 3;
+        this.dataByLevel =[];
+        this.selectedLeaf = null;
+        this.margin = {
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0
+        };
+    },
+
+    parseData: function(dataOrig, minThreshold, debug) {
 
         window.lvl1Debug="";
         window.lvl2Debug="";
@@ -224,12 +542,16 @@ var newTreemap = {
             lvl1Count=0,lvl2Count=0,lvl3Count=0,
             lvl1Arr,lvl2Arr,lvl3Arr,
             lvl1minValue,lvl2minValue,lvl3minValue,
-            lastGroup2,lastGroup3
+            lastGroup2,lastGroup3,
+            data
             ;
 
         lvl1Arr = new Array();
         lvl2Arr = new Array();
         lvl3Arr = new Array();
+
+        // Deep copy
+        data = jQuery.extend(true, {}, dataOrig);
 
         if (debug === undefined || debug === null) debug = false;
 

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>TEST D3 TREEMAP</title>
 
+    <link type="text/css" href="assets/style/jquery.nouislider.css" rel="stylesheet" />
+    <link type="text/css" href="assets/style/jquery.nouislider.pips.css" rel="stylesheet"  />
     <style>
 
         #treemap{
@@ -75,6 +77,28 @@
             position: absolute;
             text-indent: 2px;
         }
+
+        .sliderContainer{
+            float: left;
+        }
+
+        .renderDIV{
+            float: left;
+        }
+
+        .noUi-connect{
+            background-color: rgb(66, 161, 201);
+        }
+
+        .noUi-marker-vertical.noUi-marker-large {
+            width: 12px;
+        }
+
+        .noUi-value-vertical {
+            width: 15px;
+            margin-left: 13px;
+            margin-top: -5px;
+        }
     </style>
 </head>
 <body>
@@ -112,6 +136,7 @@
 
 <script src="assets/underscore/underscore.js" type="text/javascript"></script>
 <script src="assets/jquery/jquery-2.1.1.min.js" type="text/javascript"></script>
+<script src="assets/noUISlider/jquery.nouislider.all.js" type="text/javascript"></script>
 
 <!-- zoomTreemap & treemap -->
 <!--<script src="assets/D3/d3.js" type="text/javascript"></script>-->
@@ -128,12 +153,11 @@
 <script type="text/javascript">
 
     var threshold = 20;
+    newTreemap.useSlider = true;
 
     $(document).ready(function(){
 
         $('#txtThreshold').val(threshold);
-
-
 
         $('#btnRedraw').on('click',function(){
 
@@ -144,7 +168,7 @@
 
             threshold = $('#txtThreshold').val();
 
-            $.get('/data/drillData2.json', function(data) {
+            $.get('data/drillData3.json', function(data) {
                 drawTreemap(JSON.parse(data))
             });
         });
@@ -153,10 +177,9 @@
            newTreemap.goToParent();
         });
 
-
         //$.get('http://54.76.107.105/MonFlussiReport/api/TreeMap/242?FieldCode=N.RECORD%20CALCOLATO&preventCache=Thu%20Oct%2016%202014%2010:51:36%20GMT+0200%20(CEST)', function(data){
         //$.get('/data/zoomDataEx.json', function(data){
-        $.get('/data/drillData3.json', function(data) {
+        $.get('data/drillData3.json', function(data) {
             drawTreemap(JSON.parse(data))
         });
 
@@ -164,6 +187,7 @@
 
     function drawTreemap(data){
 
+            newTreemap.destroy();
             newTreemap.draw(data,threshold,true);
 
             window.treemapData = data;
